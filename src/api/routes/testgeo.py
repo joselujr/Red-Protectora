@@ -1,6 +1,7 @@
 import requests
 from flask import request, render_template_string, jsonify
 
+from api.utils import dev_only
 
 from . import api
 
@@ -12,6 +13,7 @@ NOMINATIM_USER_AGENT = "protectora_testgeo"
 
 # convierte una direccion en obeto addres con coordenadas que guardar en el shelter
 @api.route('/testgeo', methods=['GET'])
+@dev_only()
 def testgeo_nominatim_action():
 
 #     direccion = ""
@@ -61,6 +63,7 @@ IP_API_TIMEOUT_SECONDS = 3
 
 # caso de prueba fijo para ip-api.com: usa una IP publica de ejemplo (DNS de Google)
 @api.route('/testip', methods=['GET'])
+@dev_only()
 def testip_action():
     ip = "8.8.8.8"
 
