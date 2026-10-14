@@ -226,6 +226,17 @@ $ make seed
 ```
 ---
 
+## DESPLIEGUE: VERCEL + SUPABASE
+
+- **Frontend y API en Vercel**, mismo dominio. [`vercel.json`](/vercel.json) construye Vite (`dist/`) y redirige `/api/*` a la función Python [`api/index.py`](/api/index.py), que carga `src/app.py`. Cada push a GitHub genera un despliegue (Preview en ramas, Production en la principal).
+- **Base de datos en Supabase** (Postgres). Vercel usa el *Transaction pooler* (puerto 6543); en Vercel la app no mantiene pool propio (`NullPool`, ver `src/app.py`).
+- **Migraciones**: se aplican desde tu equipo contra el *Session pooler* (puerto 5432), nunca en el build: `DATABASE_URL=<session pooler> pipenv run upgrade`.
+- **Variables en Vercel**: `DATABASE_URL`, `JWT_SECRET_KEY`, `FLASK_APP_KEY`, `CLOUDINARY_*`, `FLASK_DEBUG=0`, `VITE_BASENAME=/`, `VITE_PUBLIC_URL`. `VITE_BACKEND_URL` se deja vacía.
+- **Solo en desarrollo** (`FLASK_DEBUG=1`): `/admin`, `/api/seed`, `/api/hello`, `/api/testgeo`, `/api/testip`. En producción responden 404; `/api/seed` se puede habilitar temporalmente con `ALLOW_SEED=1`.
+- `requirements.txt` es el que usa Vercel: si cambias el `Pipfile`, regenéralo con `pipenv requirements > requirements.txt`.
+
+---
+
 ## ROLES DE USUARIO:
 
 | Rol            | Tipo |
@@ -278,11 +289,15 @@ El archivo se guarda en Cloudinary. Su URL y su identificador se guardan en la b
 
 Desde el formulario también se puede cambiar la portada o eliminar una imagen. Al eliminarla, se borra tanto su registro como el archivo de Cloudinary.
 
-### 4. Página de subida independiente
+### 4. Subida directa (firmada)
 
-La página `/upload-cloudinary` permite seleccionar un archivo, pulsar “Subir archivo” y abrir el enlace recibido.
+El archivo **no pasa por la API**: Vercel no admite peticiones de más de 4,5 MB. La subida se hace en tres pasos (ver [`cloudinaryService.js`](/src/front/services/cloudinaryService.js) y [`media_upload_service.py`](/src/api/services/media_upload_service.py)):
 
-Los archivos enviados desde esta página no se asocian a ningún animal ni necesidad.
+1. `POST …/media/upload-signature` (`{content_type, size}`): el backend valida permisos, tipo y tamaño, y devuelve una firma.
+2. El navegador sube el archivo directamente a Cloudinary con esa firma.
+3. `POST …/media` (`{media_id, resource_type, is_cover}`): el backend comprueba en Cloudinary lo que se subió (formato y tamaño reales) y lo registra.
+
+Rutas: `/api/shelter/animals/<id>/media`, `/api/shelter/requests/<id>/media` y `/api/shelter/logo`.
 
 ### 5. Comprobaciones realizadas
 
