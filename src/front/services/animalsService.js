@@ -1,6 +1,7 @@
 import { getToken } from "./authServices.js";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
+import { uploadSignedMedia } from "./cloudinaryService.js";
 
 
 // recibe la url de una foto o video y devuelve la url completa para cargarla (si no es externa)
@@ -129,26 +130,9 @@ export const createAnimal = async (animal) => {
   return { ...data, animal_id, location };
 }
 
-// Sube una foto o vídeo a la ficha del animal recien creadoo editado
-export const uploadAnimalMedia = async (animal_id, file, isCover) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("is_cover", isCover ? "true" : "false");
-
-  const response = await fetch(`${backendUrl}/api/shelter/animals/${animal_id}/media`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || data.message || "No se ha podido subir el archivo");
-  }
-  return response.json();
-};
+// Sube una foto o vídeo a la ficha del animal recien creadoo editado (directo a Cloudinary con firma del backend)
+export const uploadAnimalMedia = async (animal_id, file, isCover) =>
+  uploadSignedMedia(`/api/shelter/animals/${animal_id}/media`, file, { is_cover: Boolean(isCover) });
 
 // elimina una foto o vídeo a la ficha del animal
 export const deleteAnimalMedia = async (animal_id, media_id) => {

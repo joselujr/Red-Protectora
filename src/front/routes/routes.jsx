@@ -9,7 +9,6 @@ import { Necesidades } from "../pages/Necesidades.jsx";
 import { TerminosyPrivacidad } from "../pages/TerminosyPrivacidad.jsx";
 import { TestMapa } from "../pages/TestMapa.jsx";
 import { ProtectoraProfile } from "../pages/ProtectoraProfile.jsx";
-import { UploadCloudinary } from "../pages/UploadCloudinary.jsx";
 
 import { TestSheltersFilters } from "../pages/test/TestSheltersFilters.jsx";
 import { TestAnimalFilters } from "../pages/test/TestAnimalFilters.jsx";
@@ -95,10 +94,6 @@ export const router = createBrowserRouter([
                     <ProtectedRoutes rolesPermitidos={["shelter_admin"]} />
                 ),
                 children: [
-                    {
-                        path: "/upload-cloudinary",
-                        element: <UploadCloudinary />
-                    },
                     {
                         path: "/test-api-animals",
                         element: <TestAnimalFilters />

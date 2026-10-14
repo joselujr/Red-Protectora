@@ -7,15 +7,13 @@
 php_errorlog
 .log
 
-# do not ignore gitpod and render files
+# do not ignore gitpod and vercel files
 !.gitpod.Dockerfile
 !.welcome
 !.devcontainer
 !.devcontainer/*
-!Dockerfile.render
 !.gitpod.yml
-!render.yml
-!.render-buildpacks.json
+!.python-version
 
 # track webpack configs (i.e. do NOT ignore it)
 !composer.json
@@ -36,10 +34,11 @@ Thumbs.db
 *.sublime-workspace
 *.komodoproject
 
-# ignore log files and databases
+# ignore log files and databases (incluidos los volcados de la migracion de Render a Supabase: contienen datos reales)
 *.log
 *.sql
 *.sqlite
+*.dump
 
 # ignore compiled files
 *.com
