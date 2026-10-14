@@ -1,5 +1,3 @@
-import uuid
-
 from sqlalchemy.exc import SQLAlchemyError
 
 from api.models import db
@@ -7,12 +5,15 @@ from api.repositories.request_media_repository import RequestMediaRepository
 from api.repositories.request_repository import RequestRepository
 from api.services.cloudinary_service import (
     CloudinaryConfigError,
-    CloudinaryServiceError,
     CloudinaryUploadError,
-    MediaValidationError,
     delete_media,
-    upload_media,
-    validate_media_file,
+)
+from api.services.media_upload_service import (
+    discard_media,
+    get_confirmed_media,
+    new_media_id,
+    parse_media_id,
+    sign_media_upload,
 )
 from api.utils import APIException
 
@@ -35,35 +36,29 @@ def _get_owned_necesidad(request_id, shelter_id):
     return necesidad
 
 
-def add_necesidad_media(request_id, shelter_id, file, is_cover=False):
+def _media_public_id(necesidad, media_id):
+    return f"requests/{necesidad.request_id}/{media_id}"
+
+
+# paso 1: firma la subida directa a Cloudinary
+def prepare_necesidad_media_upload(request_id, shelter_id, content_type, size):
     necesidad = _get_owned_necesidad(request_id, shelter_id)
 
-    try:
-        media_format, allowed_formats = validate_media_file(file)
-    except MediaValidationError as error:
-        raise APIException(str(error), status_code=error.status_code) from None
+    media_id = new_media_id()
+    signature = sign_media_upload(_media_public_id(necesidad, media_id), content_type, size)
 
-    media_id = str(uuid.uuid4())
+    return {"media_id": media_id, **signature}
 
-    try:
-        result = upload_media(
-            file,
-            resource_type=media_format,
-            public_id=f"{necesidad.request_id}/{media_id}",
-            allowed_formats=allowed_formats,
-            overwrite=False,
-            timeout=60,
-            folder="requests",
-        )
 
-    except CloudinaryConfigError as error:
-        raise APIException(str(error), status_code=503) from None
+# paso 3: comprueba en Cloudinary lo subido y lo registra en la necesidad
+def add_necesidad_media(request_id, shelter_id, media_id, resource_type, is_cover=False):
+    necesidad = _get_owned_necesidad(request_id, shelter_id)
+    media_id = parse_media_id(media_id)
 
-    except CloudinaryUploadError as error:
-        raise APIException(
-            f"No se pudo subir el archivo a Cloudinary: {error}",
-            status_code=502,
-        ) from None
+    if RequestMediaRepository.get_by_media_id(media_id) is not None:
+        raise APIException("Este archivo ya está registrado", status_code=409)
+
+    resource = get_confirmed_media(_media_public_id(necesidad, media_id), resource_type)
 
     try:
         if is_cover:
@@ -72,12 +67,12 @@ def add_necesidad_media(request_id, shelter_id, file, is_cover=False):
         media = RequestMediaRepository.create(
             media_id=media_id,
             request_id=necesidad.id,
-            format=media_format,
-            url=result["secure_url"],
+            format=resource_type,
+            url=resource["secure_url"],
             is_cover=bool(is_cover),
         )
 
-        media.cloudinary_public_id = result["public_id"]
+        media.cloudinary_public_id = resource["public_id"]
 
         return RequestMediaRepository.save(media)
 
@@ -85,14 +80,7 @@ def add_necesidad_media(request_id, shelter_id, file, is_cover=False):
         db.session.rollback()
 
         # Si falla la base de datos, intentar retirar el archivo subido.
-        try:
-            delete_media(
-                result["public_id"],
-                media_format,
-            )
-
-        except CloudinaryServiceError:
-            pass
+        discard_media(resource["public_id"], resource_type)
 
         raise APIException(
             "No se pudo guardar el archivo en la base de datos.",

@@ -1,11 +1,18 @@
 import os
+import time
 
 import cloudinary
+import cloudinary.api
 import cloudinary.uploader
+import cloudinary.utils
 from cloudinary.exceptions import Error as CloudinaryError
+from cloudinary.exceptions import NotFound as CloudinaryNotFound
 
 
 MAX_BYTES = 10 * 1024 * 1024
+
+# endpoint de subida directa desde el navegador (Vercel no admite peticiones de mas de 4,5 MB)
+UPLOAD_URL = "https://api.cloudinary.com/v1_1/{cloud_name}/{resource_type}/upload"
 
 CREDENTIALS = (
     "CLOUDINARY_CLOUD_NAME",
@@ -89,58 +96,81 @@ def configure():
         secure=True,
     )
 
-# Comprueba que el archivo sea una imagen o vídeo admitido y de tamaño válido. Devuelve (media_format, allowed_formats) para usar en upload_media
-def validate_media_file(file):
-    if file is None or not file.filename:
-        raise MediaValidationError("No se ha recibido ningún archivo")
 
-    if file.mimetype in ALLOWED_IMAGE_TYPES:
-        media_format = "image"
-        max_bytes = MAX_IMAGE_BYTES
-        allowed_formats = ALLOWED_IMAGE_FORMATS
+MEDIA_LIMITS = {
+    "image": (MAX_IMAGE_BYTES, ALLOWED_IMAGE_FORMATS),
+    "video": (MAX_VIDEO_BYTES, ALLOWED_VIDEO_FORMATS),
+}
 
-    elif file.mimetype in ALLOWED_VIDEO_TYPES:
-        media_format = "video"
-        max_bytes = MAX_VIDEO_BYTES
-        allowed_formats = ALLOWED_VIDEO_FORMATS
 
-    else:
-        raise MediaValidationError("Formato de archivo no admitido")
-
-    file.stream.seek(0, os.SEEK_END)
-    size = file.stream.tell()
-    file.stream.seek(0)
-
-    if size == 0:
+def _check_size(size, max_bytes):
+    if size <= 0:
         raise MediaValidationError("El archivo está vacío")
 
     if size > max_bytes:
         raise MediaValidationError("El archivo supera el tamaño máximo permitido")
 
+
+# Comprueba el tipo y tamaño que declara el navegador antes de firmar la subida. Devuelve (media_format, allowed_formats)
+def validate_media_meta(mimetype, size):
+    if mimetype in ALLOWED_IMAGE_TYPES:
+        media_format = "image"
+    elif mimetype in ALLOWED_VIDEO_TYPES:
+        media_format = "video"
+    else:
+        raise MediaValidationError("Formato de archivo no admitido")
+
+    try:
+        size = int(size)
+    except (TypeError, ValueError):
+        raise MediaValidationError("Tamaño de archivo inválido") from None
+
+    max_bytes, allowed_formats = MEDIA_LIMITS[media_format]
+    _check_size(size, max_bytes)
+
     return media_format, allowed_formats
 
 
-def upload_media(
-    file,
-    resource_type,
-    allowed_formats,
-    public_id=None,
-    folder=None,
-    overwrite=False,
-    timeout=60,
-):
+# Revalida lo que realmente quedo subido en Cloudinary (el navegador podria haber mentido en la firma)
+def validate_uploaded_resource(resource, media_format):
+    max_bytes, allowed_formats = MEDIA_LIMITS[media_format]
+
+    if resource.get("format") not in allowed_formats:
+        raise MediaValidationError("Formato de archivo no admitido")
+
+    _check_size(resource.get("bytes", 0), max_bytes)
+
+
+# Firma los parametros para que el navegador suba el archivo directamente a Cloudinary.
+# El navegador debe enviar exactamente los mismos "params" que se firman aqui.
+def sign_upload(public_id, resource_type, allowed_formats, overwrite=False):
+    configure()
+
+    params = {
+        "timestamp": str(int(time.time())),
+        "public_id": public_id,
+        "allowed_formats": ",".join(allowed_formats),
+        "overwrite": "true" if overwrite else "false",
+    }
+    config = cloudinary.config()
+    signature = cloudinary.utils.api_sign_request(params, config.api_secret)
+
+    return {
+        "upload_url": UPLOAD_URL.format(cloud_name=config.cloud_name, resource_type=resource_type),
+        "resource_type": resource_type,
+        "params": {**params, "api_key": config.api_key, "signature": signature},
+    }
+
+
+# Devuelve el recurso subido (bytes, format, secure_url, public_id) o None si no existe
+def get_uploaded_resource(public_id, resource_type, timeout=30):
     configure()
 
     try:
-        return cloudinary.uploader.upload(
-            file,
-            resource_type=resource_type,
-            public_id=public_id,
-            allowed_formats=allowed_formats,
-            overwrite=overwrite,
-            timeout=timeout,
-            folder=folder,
-        )
+        return cloudinary.api.resource(public_id, resource_type=resource_type, timeout=timeout)
+
+    except CloudinaryNotFound:
+        return None
 
     except CloudinaryError as error:
         raise CloudinaryUploadError(str(error)) from error

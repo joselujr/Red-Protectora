@@ -1,7 +1,7 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
 
 export const signup = async (datos) => {
-  const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/api/signup`, {
+  const response = await fetch(`${backendUrl}/api/signup`, {
     method: "POST",
     body: JSON.stringify(datos),
     headers: {
@@ -20,7 +20,7 @@ export const signup = async (datos) => {
 };
 
 export const login = async (usuario, password) => {
-  const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/api/login`, {
+  const response = await fetch(`${backendUrl}/api/login`, {
     method: "POST",
     body: JSON.stringify({
       usuario: usuario,
@@ -53,7 +53,7 @@ export const logout = async () => {
   //llamada a backend
   try {
     const response = await fetch(
-      `${BACKEND_URL.replace(/\/$/, "")}/api/logout`,
+      `${backendUrl}/api/logout`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -86,7 +86,7 @@ export const limpiarSession = () => {
 
 export const fetchProfile = async () => {
   const response = await fetch(
-    `${BACKEND_URL.replace(/\/$/, "")}/api/profile`,
+    `${backendUrl}/api/profile`,
     {
       headers: {
         Authorization: `Bearer ${getToken()}`,
@@ -119,7 +119,7 @@ export const getUser = () => {
 
 // guarda los datos personales del usuario logueado y los actualiza
 export const updateProfile = async (datos) => {
-  const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/api/profile`, {
+  const response = await fetch(`${backendUrl}/api/profile`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",

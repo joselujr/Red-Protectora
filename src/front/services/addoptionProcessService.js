@@ -1,6 +1,6 @@
 import { getToken } from "./authServices.js";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
 
 // trae el proceso de adopcion abierto de un animal propio (o null si nunca se abrio ninguno)
 export const getAddoptionProcess = async (animal_id) => {
