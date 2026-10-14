@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "../services/backendUrl.js";
 
 export const TestMapa = () => {
 

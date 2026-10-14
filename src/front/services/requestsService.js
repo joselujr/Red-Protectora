@@ -1,6 +1,7 @@
 import { getToken } from "./authServices.js";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
+import { uploadSignedMedia } from "./cloudinaryService.js";
 
 // tablon publico de necesidades (no requiere sesion)
 export const getRequests = async (
@@ -120,26 +121,9 @@ export const crearNecesidad = async (necesidad) => {
   return { ...data, request_id, location };
 };
 
-// Sube una foto o vídeo a la necesidad recien creada o editada
-export const uploadNecesidadMedia = async (request_id, file, isCover) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("is_cover", isCover ? "true" : "false");
-
-  const response = await fetch(`${backendUrl}/api/shelter/requests/${request_id}/media`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || data.message || "No se ha podido subir el archivo");
-  }
-  return response.json();
-};
+// Sube una foto o vídeo a la necesidad recien creada o editada (directo a Cloudinary con firma del backend)
+export const uploadNecesidadMedia = async (request_id, file, isCover) =>
+  uploadSignedMedia(`/api/shelter/requests/${request_id}/media`, file, { is_cover: Boolean(isCover) });
 
 // elimina una foto o vídeo de la necesidad
 export const deleteNecesidadMedia = async (request_id, media_id) => {

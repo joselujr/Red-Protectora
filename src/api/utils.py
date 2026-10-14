@@ -1,3 +1,6 @@
+import os
+from functools import wraps
+
 from flask import jsonify, request, url_for
 
 
@@ -65,6 +68,22 @@ def paginate_args():
     per_page = min(max(per_page, 1), MAX_PER_PAGE)
 
     return page, per_page
+
+
+def is_development():
+    return os.getenv("FLASK_DEBUG") == "1"
+
+
+# limita una ruta a desarrollo (FLASK_DEBUG=1); en produccion responde 404 salvo que la variable `enable_flag` valga "1"
+def dev_only(enable_flag=None):
+    def decorator(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            if not is_development() and not (enable_flag and os.getenv(enable_flag) == "1"):
+                raise APIException("Recurso no encontrado", status_code=404)
+            return view(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 # obtiene la IP real del cliente; si hay proxy delante, X-Forwarded-For trae la IP original en el primer valor

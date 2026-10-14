@@ -1,6 +1,6 @@
 import { getToken } from "./authServices.js";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
 
 // trae el proceso de adopcion publico de un animal (o null si nunca se abrio ninguno);
 // incluye is_open_for_requests para saber si admite solicitudes ahora mismo

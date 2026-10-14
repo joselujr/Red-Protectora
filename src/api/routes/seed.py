@@ -26,6 +26,7 @@ from api.services.animals_service import ACTIVADO
 from api.services.addoption_process_service import ABIERTO
 from api.services.addoption_request_service import PENDIENTE
 from api.repositories.request_media_repository import RequestMediaRepository
+from api.utils import dev_only
 ##############################
 #1. añadir fichero .json en la carpeta data
 #2. añadir bloque de carga en este fichero, siguiendo el patrón de los bloques existentes
@@ -35,7 +36,9 @@ from api.repositories.request_media_repository import RequestMediaRepository
 from . import api
 
 #cargamos de la carpeta data los json y los insertamos en la base de datos si no existen ya, cada bloque un modelo
+#en produccion solo responde si ALLOW_SEED=1 (mete usuarios y animales de prueba)
 @api.route("/seed", methods=["GET"])
+@dev_only("ALLOW_SEED")
 def seed_database():
     base_path = os.path.join(os.path.dirname(__file__), "..", "data")
 

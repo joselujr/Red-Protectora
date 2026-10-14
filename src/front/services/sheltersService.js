@@ -1,5 +1,6 @@
 import { getToken } from "./authServices.js";
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
+import { uploadSignedMedia } from "./cloudinaryService.js";
 
 // lanza un error con el status http, para poder distinguir un 404 en la vista
 const lanzarError = async (response, mensaje) => {
@@ -61,19 +62,8 @@ export const updateShelterProfile = async (datos) => {
   return response.json();
 };
 
-// sube (o reemplaza) el logo de la protectora del usuario logueado
-export const uploadShelterLogo = async (file) => {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch(`${backendUrl}/api/shelter/logo`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${getToken()}` },
-    body: formData,
-  });
-  if (!response.ok) await lanzarError(response, "No se ha podido subir el logo");
-  return response.json();
-};
+// sube (o reemplaza) el logo de la protectora del usuario logueado (directo a Cloudinary con firma del backend)
+export const uploadShelterLogo = async (file) => uploadSignedMedia("/api/shelter/logo", file);
 
 // quita el logo de la protectora del usuario logueado
 export const deleteShelterLogo = async () => {

@@ -13,6 +13,7 @@ from api.commands import setup_commands
 from flask_jwt_extended import JWTManager
 from api.services.users_service import is_token_revoked
 from datetime import timedelta
+from sqlalchemy.pool import NullPool
 
 # from models import Person
 
@@ -44,11 +45,18 @@ else:
     app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:////tmp/test.db"
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# en Vercel (serverless) cada instancia vive poco: no mantenemos pool propio,
+# el pooler de Supabase (puerto 6543, modo transaction) reparte las conexiones
+if os.getenv("VERCEL"):
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {"poolclass": NullPool}
+
 MIGRATE = Migrate(app, db, compare_type=True)
 db.init_app(app)
 
-# add the admin
-setup_admin(app)
+# add the admin (solo en desarrollo: no tiene autenticacion y expone toda la base de datos)
+if ENV == "development":
+    setup_admin(app)
 
 # add the admin
 setup_commands(app)

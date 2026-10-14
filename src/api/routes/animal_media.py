@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required
 from api.services.animal_media_service import (
     add_animal_media,
     delete_animal_media,
+    prepare_animal_media_upload,
     set_animal_media_cover,
 )
 from api.utils import APIException
@@ -20,17 +21,29 @@ def _require_shelter_user():
 
 
 # ######################
-#ruta para subir una foto o video a la ficha de un animal (solo su protectora)
+#ruta para firmar la subida directa a Cloudinary de una foto o video del animal (solo su protectora)
+# ######################
+@api.route('/shelter/animals/<animal_id>/media/upload-signature', methods=['POST'])
+@jwt_required()
+def sign_animal_media_upload_action(animal_id):
+    user = _require_shelter_user()
+
+    data = request.get_json(silent=True) or {}
+    signature = prepare_animal_media_upload(animal_id, user.shelter_id, data.get('content_type'), data.get('size'))
+    return jsonify(signature), 200
+
+
+# ######################
+#ruta para registrar en la ficha del animal la foto o video ya subido a Cloudinary
 # ######################
 @api.route('/shelter/animals/<animal_id>/media', methods=['POST'])
 @jwt_required()
 def add_animal_media_action(animal_id):
     user = _require_shelter_user()
 
-    file = request.files.get('file')
-    is_cover = request.form.get('is_cover', 'false').lower() == 'true'
-
-    media = add_animal_media(animal_id, user.shelter_id, file, is_cover=is_cover)
+    data = request.get_json(silent=True) or {}
+    media = add_animal_media(animal_id, user.shelter_id, data.get('media_id'), data.get('resource_type'),
+                             is_cover=bool(data.get('is_cover')))
     return jsonify(media.serialize()), 201
 
 

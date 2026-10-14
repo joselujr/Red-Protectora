@@ -1,4 +1,4 @@
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
 
 export const getHomeInsights = async () => {
   const response = await fetch(backendUrl + "/api/data/insights");

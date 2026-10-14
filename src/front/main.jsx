@@ -9,7 +9,9 @@ import { BackendURL } from './components/BackendURL';
 
 const Main = () => {
 
-    if (! import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL == "") return (
+    // en desarrollo el backend corre en otro puerto y hace falta VITE_BACKEND_URL;
+    // en produccion (Vercel) la API esta en el mismo dominio y puede ir vacia
+    if (import.meta.env.DEV && !import.meta.env.VITE_BACKEND_URL) return (
         <React.StrictMode>
             <BackendURL />
         </React.StrictMode>
