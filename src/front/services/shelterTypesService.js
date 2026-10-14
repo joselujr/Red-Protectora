@@ -1,7 +1,7 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import { backendUrl } from "./backendUrl.js";
 
 export const getShelterTypes = async () => {
-    const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/api/shelter-types`);
+    const response = await fetch(`${backendUrl}/api/shelter-types`);
 
     const data = await response.json();
     if (!response.ok) {

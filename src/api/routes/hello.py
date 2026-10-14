@@ -1,9 +1,12 @@
 from flask import jsonify
 
+from api.utils import dev_only
+
 from . import api
 
 
 @api.route('/hello', methods=['POST', 'GET'])
+@dev_only()
 def handle_hello():
 
     response_body = {

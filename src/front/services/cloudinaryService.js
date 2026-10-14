@@ -1,48 +1,53 @@
 import { getToken } from "./authServices.js";
+import { backendUrl } from "./backendUrl.js";
 
-const backendUrl = (
-  import.meta.env.VITE_BACKEND_URL || ""
-).replace(/\/+$/, "");
-
-// Enviar el archivo a nuestro backend.
-export const uploadToCloudinary = async (file) => {
-  if (!backendUrl) {
-    throw new Error("Falta configurar VITE_BACKEND_URL.");
-  }
-
+// Subida en tres pasos: el archivo va directo del navegador a Cloudinary (no pasa por la API,
+// que en Vercel no admite peticiones de mas de 4,5 MB).
+//   1. pedimos al backend una firma para ese archivo (valida tipo, tamaño y permisos)
+//   2. subimos el archivo a Cloudinary con esa firma
+//   3. confirmamos al backend, que lo comprueba en Cloudinary y lo registra
+// `endpoint` es la ruta de la API sin el sufijo, p.ej. /api/shelter/animals/<id>/media
+export const uploadSignedMedia = async (endpoint, file, extra = {}) => {
   if (!file) {
     throw new Error("Selecciona un archivo.");
   }
 
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch(`${backendUrl}/api/upload`, {
+  const signatureResponse = await fetch(`${backendUrl}${endpoint}/upload-signature`, {
     method: "POST",
     headers: {
+      "Content-Type": "application/json",
       Authorization: `Bearer ${getToken()}`,
     },
-    body: formData,
+    body: JSON.stringify({ content_type: file.type, size: file.size }),
   });
-
-  // El navegador configura el Content-Type de FormData.
-  let data;
-
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error(
-      "El servidor no devolvió JSON. Revisa la URL del backend."
-    );
+  const firma = await signatureResponse.json().catch(() => ({}));
+  if (!signatureResponse.ok) {
+    throw new Error(firma.error || firma.message || "No se ha podido preparar la subida");
   }
 
-  if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-      data?.message ||
-      data?.msg ||
-      "No se pudo subir el archivo."
-    );
+  const formData = new FormData();
+  Object.entries(firma.params).forEach(([clave, valor]) => formData.append(clave, valor));
+  formData.append("file", file);
+
+  const uploadResponse = await fetch(firma.upload_url, { method: "POST", body: formData });
+  if (!uploadResponse.ok) {
+    const data = await uploadResponse.json().catch(() => ({}));
+    throw new Error(data?.error?.message || "No se ha podido subir el archivo a Cloudinary");
+  }
+
+  const confirmResponse = await fetch(`${backendUrl}${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify({ media_id: firma.media_id, resource_type: firma.resource_type, ...extra }),
+  });
+  const data = await confirmResponse.json().catch(() => ({}));
+  if (!confirmResponse.ok) {
+    const error = new Error(data.error || data.message || "No se ha podido guardar el archivo");
+    error.status = confirmResponse.status;
+    throw error;
   }
 
   return data;

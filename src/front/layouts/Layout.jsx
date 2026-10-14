@@ -7,6 +7,7 @@ import { GlobalModal } from "../components/GlobalModal"
 import { CookieBanner } from "../components/CookieBanner" // <-- 1. Importas el componente aquí
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx"
 import { getToken } from "../services/authServices"
+import { backendUrl } from "../services/backendUrl.js"
 
 // Base component that maintains the navbar and footer throughout the page and the scroll to top functionality.
 export const Layout = () => {
@@ -15,7 +16,6 @@ export const Layout = () => {
     useEffect(() => {
         if (store.shelterTypes?.length > 0 && store.animalTypes?.length > 0 && store.requestTypes?.length > 0) return
 
-        const backendUrl = import.meta.env.VITE_BACKEND_URL
         const token = getToken()
 
         fetch(backendUrl + "/api/data", {
